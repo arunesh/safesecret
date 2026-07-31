@@ -1,0 +1,24 @@
+{
+  // The Worker target. Overlaps deliberately with tsconfig.json on server/ and
+  // shared/: those files must compile against both the Workers runtime globals and
+  // the Node/DOM ones, which is exactly the portability guarantee we want checked.
+  // node/ and server/store/sqlite.ts are excluded — they are the Node-only path.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["./worker-configuration.d.ts"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["worker", "server", "shared"],
+  "exclude": ["server/store/sqlite.ts"]
+}

@@ -34,6 +34,21 @@ npm run typecheck  # checks the Node/DOM target and the Workers target separatel
 npm run build
 ```
 
+### If `npm install` leaves Vite broken
+
+On npm 10.x you may see `Cannot find native binding` from Vite or Vitest. That is
+[npm/cli#4828](https://github.com/npm/cli/issues/4828) — npm silently skips the optional
+platform binary that Rolldown (Vite 8's bundler) needs. It is not fixed by reinstalling.
+Install the binding for your platform without saving it:
+
+```bash
+npm i --no-save @rolldown/binding-darwin-arm64    # or -darwin-x64, -linux-x64-gnu, …
+```
+
+It is deliberately not in `package.json`: a hard dependency on one platform's binary breaks
+`npm install` everywhere else. Upgrading to Node 22.12+ (which Vite 8 requires anyway, and
+which ships a newer npm) is the real fix.
+
 ### Self-hosted, without Cloudflare
 
 The same Hono app runs on plain Node against a SQLite file on the local filesystem:

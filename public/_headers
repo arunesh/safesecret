@@ -1,0 +1,16 @@
+# Headers for static asset responses.
+#
+# The Worker's own middleware cannot cover these: with run_worker_first scoped to
+# /api/*, asset requests (including the HTML document) never reach Worker code.
+# Without this file the page itself would ship with no CSP.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
+
+# Secret links must never be cached or indexed.
+/s/*
+  Cache-Control: no-store, max-age=0
+  X-Robots-Tag: noindex, nofollow

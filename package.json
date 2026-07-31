@@ -1,0 +1,42 @@
+{
+  "name": "safesecret",
+  "version": "0.1.0",
+  "description": "One-time secret sharing",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start:node": "node --experimental-sqlite --import tsx node/index.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
+    "cf-typegen": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply safesecret --local",
+    "db:migrate:remote": "wrangler d1 migrations apply safesecret --remote",
+    "deploy": "vite build && wrangler deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "private": "true",
+  "type": "module",
+  "dependencies": {
+    "hono": "^4.12.33",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^7.18.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.50.0",
+    "@hono/node-server": "^2.0.12",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.118.0"
+  }
+}
