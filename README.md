@@ -63,10 +63,33 @@ on Node 22 (already in the script); on Node 24+ it is stable.
 
 ## Deploying to Cloudflare
 
+Deploys run from CI on push to `main` (Cloudflare Workers Builds). Set the project's
+**deploy command** to:
+
+```
+npm run deploy:ci
+```
+
+That applies pending migrations before publishing, so the schema can never lag behind the
+code that expects it. `wrangler d1 migrations apply` records what it has run in a
+`d1_migrations` table and skips those, so it is safe on every build.
+
+The Workers Builds token needs **D1:Edit** as well as Workers permissions; without it the
+migration step fails and the deploy stops before publishing — which is the behaviour you
+want, rather than shipping code against a stale schema.
+
+To deploy by hand instead:
+
 ```bash
-npx wrangler d1 create safesecret     # paste the returned id into wrangler.jsonc
 npm run db:migrate:remote
 npm run deploy
+```
+
+Setting up a fresh account from scratch (already done for this one):
+
+```bash
+npx wrangler login
+npx wrangler d1 create safesecret   # put the id in wrangler.jsonc's DB binding
 ```
 
 ## Notes for anyone changing this
@@ -94,8 +117,6 @@ npm run deploy
 ## Known gaps
 
 The cron trigger has not been exercised against remote D1 — its body is unit-tested and the
-schedule is declared, but nothing has watched it fire in production. Accounts and
-server-side mode are designed for but not built (PLAN.md §3.2).
-
-`wrangler.jsonc` still carries a placeholder `database_id`; replace it with a real one
-before deploying, or the deploy will target a database that does not exist.
+schedule is declared, but nothing has watched it fire in production. Check the dashboard
+after the first hour. Accounts and server-side mode are designed for but not built
+(PLAN.md §3.2).
