@@ -7,6 +7,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="page">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+
       <header className="site-header">
         <div className="container">
           <Link to="/" className="wordmark">
@@ -19,7 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="site-main">
+      <main className="site-main" id="main">
         <div className="container">{children}</div>
       </main>
 

@@ -1,5 +1,7 @@
 import { createApp } from "../server/app.js";
+import { bindingRateLimiter } from "../server/ratelimit.js";
 import { createD1Store } from "../server/store/d1.js";
+import { sweepExpired } from "../server/sweep.js";
 
 /**
  * Cloudflare entry point. Static assets are served by the assets binding; only
@@ -7,11 +9,16 @@ import { createD1Store } from "../server/store/d1.js";
  */
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    return createApp(createD1Store(env.DB)).fetch(request, env, ctx);
+    const app = createApp(createD1Store(env.DB), {
+      limits: {
+        create: bindingRateLimiter(env.CREATE_LIMITER),
+        reveal: bindingRateLimiter(env.REVEAL_LIMITER),
+      },
+    });
+    return app.fetch(request, env, ctx);
   },
 
   async scheduled(_controller: ScheduledController, env: Env) {
-    const deleted = await createD1Store(env.DB).sweep(Math.floor(Date.now() / 1000));
-    console.log(JSON.stringify({ event: "sweep", deleted }));
+    await sweepExpired(createD1Store(env.DB));
   },
 } satisfies ExportedHandler<Env>;

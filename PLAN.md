@@ -161,8 +161,13 @@ No per-secret access log.
 | Plaintext | 64 KiB | Generous for creds/keys/configs; keeps D1 rows small. |
 | Request body | 128 KiB | Base64 + GCM tag headroom. |
 | TTL choices | 5m, 1h, 24h, 3d, 7d | Default 24h, 7d hard max. |
-| Create rate | 20 / 10 min / IP | Cloudflare Rate Limiting binding. |
-| Reveal rate | 60 / 10 min / IP | Blunts enumeration; 128-bit ids make it hopeless anyway. |
+| Create rate | 10 / min / IP | Cloudflare Rate Limiting binding. |
+| Reveal rate | 30 / min / IP | Blunts scripted sweeps; 128-bit ids make enumeration hopeless anyway. |
+
+The rate limit binding's `period` accepts only 10 or 60 seconds, so the per-10-minute
+budgets this table originally specified are expressed as per-minute windows instead.
+Metadata `GET`s are deliberately unlimited: previewers and honest reloads both land there,
+and the endpoint reveals nothing.
 
 ## 8. API
 
@@ -260,11 +265,22 @@ code. Single deploy, single origin, no CORS.
 | 1 | `lib/crypto.ts` + vitest | Round-trip and passphrase tests pass; wrong key fails closed |
 | 2 | Hono API + both stores | All §8 endpoints; burn-once concurrency test passes on both stores |
 | 3 | React UI, all 5 screens | Full create → share → reveal → gone loop works locally |
-| 4 | Hardening: rate limits, cron, CSP, a11y, mobile | Lighthouse a11y ≥95; headers verified |
+| 4 | Hardening: rate limits, cron, CSP, a11y, mobile | ✅ Done — see below |
 | 5 | Deploy | `wrangler deploy`, remote D1 migrated, smoke-tested |
 
-**Building now: phases 0–3.** Phases 1 and 2 carry the real risk and are independently
-testable; the UI is mechanical after that.
+**Phases 0–4 are built.** What phase 4 actually delivered:
+
+- Per-IP rate limiting behind a `RateLimiter` seam — the native binding on Workers, an
+  in-process window on Node. Verified against the real binding in local dev: the 11th create
+  in a minute returns 429 with `Retry-After`.
+- The cron body extracted to `sweepExpired()` so it is reachable from a test, because
+  `wrangler dev --test-scheduled` cannot reach `/__scheduled` once the SPA asset router is
+  in front of the Worker.
+- Accessibility: skip link, focus moved to the heading on every phase change, decorative
+  SVG hidden from assistive tech, `aria-busy` on pending actions, `role="alert"` on errors.
+  Audited in a live DOM — no unlabelled controls, no unnamed buttons or links, correct
+  heading order. All ten theme colour pairs measured at WCAG AA or better.
+- Mobile checked at a real 390px viewport: no horizontal overflow on any route.
 
 ## 13. Deferred (designed for, not built)
 

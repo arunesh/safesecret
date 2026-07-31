@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CreateSecretResponse } from "../../shared/types.js";
 import { burnSecret } from "../lib/api.js";
 import { formatExpiry } from "../lib/format.js";
@@ -14,6 +14,12 @@ interface Props {
 export function LinkResult({ created, linkKey, onStartOver }: Props) {
   const [burned, setBurned] = useState(false);
   const [burning, setBurning] = useState(false);
+
+  // The form is replaced by this screen, so focus has to follow.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [burned]);
 
   // The key goes in the fragment, which browsers never put on the wire.
   const link = `${window.location.origin}/s/${created.id}#${linkKey}`;
@@ -34,7 +40,9 @@ export function LinkResult({ created, linkKey, onStartOver }: Props) {
   if (burned) {
     return (
       <div className="card reveal-card">
-        <h1>Destroyed</h1>
+        <h1 ref={headingRef} tabIndex={-1}>
+          Destroyed
+        </h1>
         <p className="lede">That link no longer works. Nothing of it remains on the server.</p>
         <button type="button" className="button" onClick={onStartOver}>
           Share another secret
@@ -45,7 +53,9 @@ export function LinkResult({ created, linkKey, onStartOver }: Props) {
 
   return (
     <>
-      <h1>Your link is ready</h1>
+      <h1 ref={headingRef} tabIndex={-1}>
+        Your link is ready
+      </h1>
       <p className="lede">Send it to one person, through one channel. Then forget it.</p>
 
       <div className="card">
@@ -66,7 +76,7 @@ export function LinkResult({ created, linkKey, onStartOver }: Props) {
           <button type="button" className="button secondary" onClick={onStartOver}>
             Share another
           </button>
-          <button type="button" className="button danger" onClick={burn} disabled={burning}>
+          <button type="button" className="button danger" onClick={burn} disabled={burning} aria-busy={burning}>
             {burning ? "Destroying…" : "Destroy it now"}
           </button>
         </div>

@@ -3,7 +3,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { Hono } from "hono";
 import { createApp } from "../server/app.js";
+import { memoryRateLimiter } from "../server/ratelimit.js";
 import { createSqliteStore } from "../server/store/sqlite.js";
+import { sweepExpired } from "../server/sweep.js";
 import { sealSecret, openSecret } from "../src/lib/crypto.js";
 import type { CreateSecretResponse, SecretMetaResponse } from "../shared/types.js";
 
@@ -192,6 +194,27 @@ describe("expiry", () => {
     expect((await post(`/api/secrets/${expiredId}/reveal`)).status).toBe(404);
   });
 
+  it("runs the cron sweep body against a live store", async () => {
+    const live = await create({ ttlSeconds: 3600 });
+    await store.create({
+      id: "d".repeat(22),
+      mode: "e2e",
+      ciphertext: "Zm9v",
+      iv: "AAAAAAAAAAAAAAAA",
+      salt: null,
+      wrappedKey: null,
+      hasPassphrase: false,
+      ownerId: null,
+      createdAt: 1000,
+      expiresAt: 2000,
+      burnTokenHash: "x",
+    });
+
+    // This is exactly what the Worker's scheduled() handler invokes.
+    expect(await sweepExpired(store)).toBe(1);
+    expect((await app.request(`/api/secrets/${live.id}`)).status).toBe(200);
+  });
+
   it("sweeps expired rows and leaves live ones", async () => {
     const live = await create({ ttlSeconds: 3600 });
     await store.create({
@@ -210,6 +233,84 @@ describe("expiry", () => {
 
     expect(await store.sweep(Math.floor(Date.now() / 1000))).toBe(1);
     expect((await app.request(`/api/secrets/${live.id}`)).status).toBe(200);
+  });
+});
+
+describe("rate limiting", () => {
+  const ip = (address: string) => ({ "cf-connecting-ip": address, "content-type": "application/json" });
+
+  function limitedApp() {
+    return createApp(store, {
+      limits: { create: memoryRateLimiter(2, 60), reveal: memoryRateLimiter(2, 60) },
+    });
+  }
+
+  it("rejects creates over budget with 429 and Retry-After", async () => {
+    const limited = limitedApp();
+    const send = () =>
+      limited.request("/api/secrets", { method: "POST", body: JSON.stringify(body()), headers: ip("1.2.3.4") });
+
+    expect((await send()).status).toBe(201);
+    expect((await send()).status).toBe(201);
+
+    const blocked = await send();
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBe("60");
+    expect((await blocked.json()).error.code).toBe("rate_limited");
+  });
+
+  it("budgets each client address separately", async () => {
+    const limited = limitedApp();
+    const send = (address: string) =>
+      limited.request("/api/secrets", { method: "POST", body: JSON.stringify(body()), headers: ip(address) });
+
+    await send("1.2.3.4");
+    await send("1.2.3.4");
+    expect((await send("1.2.3.4")).status).toBe(429);
+
+    // A different caller must be unaffected by the first one's spending.
+    expect((await send("5.6.7.8")).status).toBe(201);
+  });
+
+  it("limits reveals independently of creates", async () => {
+    const limited = limitedApp();
+    const created = await Promise.all(
+      [0, 1].map(async () => {
+        const res = await limited.request("/api/secrets", {
+          method: "POST",
+          body: JSON.stringify(body()),
+          headers: ip("9.9.9.9"),
+        });
+        return (await res.json()) as CreateSecretResponse;
+      }),
+    );
+
+    for (const secret of created) {
+      const res = await limited.request(`/api/secrets/${secret.id}/reveal`, { method: "POST", headers: ip("9.9.9.9") });
+      expect(res.status).toBe(200);
+    }
+
+    const third = await limited.request(`/api/secrets/${"c".repeat(22)}/reveal`, {
+      method: "POST",
+      headers: ip("9.9.9.9"),
+    });
+    expect(third.status).toBe(429);
+  });
+
+  it("does not limit metadata reads", async () => {
+    const limited = limitedApp();
+    const res = await limited.request("/api/secrets", {
+      method: "POST",
+      body: JSON.stringify(body()),
+      headers: ip("4.4.4.4"),
+    });
+    const { id }: CreateSecretResponse = await res.json();
+
+    // Well past the create/reveal budget — GETs must stay free, since previewers
+    // and honest reloads both land here.
+    for (let i = 0; i < 10; i++) {
+      expect((await limited.request(`/api/secrets/${id}`, { headers: ip("4.4.4.4") })).status).toBe(200);
+    }
   });
 });
 

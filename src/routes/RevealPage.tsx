@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import type { Envelope, SecretMetaResponse } from "../../shared/types.js";
 import { CopyButton } from "../components/CopyButton.js";
@@ -25,6 +25,13 @@ export function RevealPage() {
   // server copy is already gone by then — re-requesting it would 404 and the
   // secret would be lost to a typo.
   const [envelope, setEnvelope] = useState<Envelope | null>(null);
+
+  // Revealing replaces the whole screen. Without moving focus, a screen reader or
+  // keyboard user is left on a button that no longer exists and hears nothing.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (phase === "revealed" || phase === "gone" || phase === "incomplete") headingRef.current?.focus();
+  }, [phase]);
 
   useEffect(() => {
     if (!linkKey) {
@@ -76,8 +83,8 @@ export function RevealPage() {
   if (phase === "loading") {
     return (
       <div className="card reveal-card">
-        <p className="muted">
-          <span className="spinner" /> Checking…
+        <p className="muted" role="status">
+          <span className="spinner" aria-hidden="true" /> Checking…
         </p>
       </div>
     );
@@ -86,7 +93,9 @@ export function RevealPage() {
   if (phase === "gone" || phase === "incomplete") {
     return (
       <div className="card reveal-card">
-        <h1>Nothing here</h1>
+        <h1 ref={headingRef} tabIndex={-1}>
+          Nothing here
+        </h1>
         <p className="lede">
           {phase === "incomplete"
             ? "This link is incomplete — the part after the # is missing, and without it the secret cannot be decrypted."
@@ -102,7 +111,9 @@ export function RevealPage() {
   if (phase === "revealed") {
     return (
       <>
-        <h1>Here it is</h1>
+        <h1 ref={headingRef} tabIndex={-1}>
+          Here it is
+        </h1>
         <p className="lede">Copy it now. It is gone from the server, and this page will not show it again.</p>
 
         <div className="card">
@@ -162,8 +173,9 @@ export function RevealPage() {
           className="button large block"
           onClick={reveal}
           disabled={revealing || (needsPassphrase && passphrase.length === 0)}
+          aria-busy={revealing}
         >
-          {revealing ? <span className="spinner" /> : null}
+          {revealing ? <span className="spinner" aria-hidden="true" /> : null}
           {revealing ? "Decrypting…" : "Reveal secret"}
         </button>
       </div>

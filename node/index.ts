@@ -4,7 +4,9 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createApp } from "../server/app.js";
+import { memoryRateLimiter } from "../server/ratelimit.js";
 import { createSqliteStore } from "../server/store/sqlite.js";
+import { sweepExpired } from "../server/sweep.js";
 
 /**
  * Self-hosted entry point: plain Node, a SQLite file on the local filesystem, and
@@ -25,7 +27,11 @@ const store = createSqliteStore(
     .map((f) => join(migrations, f)),
 );
 
-const app = createApp(store);
+// In-process limits: they protect this instance only. Behind a load balancer,
+// put the real limiting at the proxy.
+const app = createApp(store, {
+  limits: { create: memoryRateLimiter(10, 60), reveal: memoryRateLimiter(30, 60) },
+});
 
 // Serve the built SPA, falling back to index.html for client-side routes.
 app.use("/assets/*", serveStatic({ root: "./dist/client" }));
@@ -34,7 +40,7 @@ app.get("*", serveStatic({ path: "./dist/client/index.html" }));
 // Expiry is enforced on every read, so this sweep is hygiene, not correctness.
 const sweep = setInterval(
   () => {
-    void store.sweep(Math.floor(Date.now() / 1000));
+    void sweepExpired(store);
   },
   60 * 60 * 1000,
 );

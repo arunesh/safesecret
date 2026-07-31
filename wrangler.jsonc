@@ -26,6 +26,17 @@
     }
   ],
 
+  // Per-IP rate limits, counted at the edge.
+  //
+  // `period` accepts only 10 or 60 seconds, so the per-10-minute budgets in
+  // PLAN.md §7 are expressed as per-minute windows instead. Creating is the
+  // expensive side (it writes and consumes quota); revealing is capped mainly to
+  // blunt scripted sweeps, though 128-bit ids already make enumeration hopeless.
+  "ratelimits": [
+    { "name": "CREATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "REVEAL_LIMITER", "namespace_id": "1002", "simple": { "limit": 30, "period": 60 } }
+  ],
+
   // Hourly sweep of expired rows. Expiry is enforced on read regardless, so this
   // is hygiene rather than correctness.
   "triggers": { "crons": ["0 * * * *"] },

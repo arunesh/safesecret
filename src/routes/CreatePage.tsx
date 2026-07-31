@@ -7,7 +7,7 @@ import { sealSecret } from "../lib/crypto.js";
 import { byteLength, formatSize } from "../lib/format.js";
 
 export function CreatePage() {
-  const ids = { secret: useId(), ttl: useId(), passphrase: useId(), usePassphrase: useId() };
+  const ids = { secret: useId(), ttl: useId(), passphrase: useId(), usePassphrase: useId(), sizeHint: useId() };
 
   const [text, setText] = useState("");
   const [ttlSeconds, setTtlSeconds] = useState<number>(DEFAULT_TTL_SECONDS);
@@ -56,12 +56,14 @@ export function CreatePage() {
 
       <form className="card" onSubmit={submit}>
         <div className="field">
-          <label htmlFor={ids.secret}>
-            Secret
-            <span className={tooLarge ? "char-count over" : "char-count"}>
+          <div className="field-head">
+            <label htmlFor={ids.secret}>Secret</label>
+            {/* Hidden from assistive tech: it re-renders on every keystroke, and the
+                limit is already announced once via aria-describedby. */}
+            <span className={tooLarge ? "char-count over" : "char-count"} aria-hidden="true">
               {formatSize(size)} / {MAX_PLAINTEXT_BYTES / 1024} KiB
             </span>
-          </label>
+          </div>
           <textarea
             id={ids.secret}
             value={text}
@@ -69,8 +71,17 @@ export function CreatePage() {
             placeholder="hunter2"
             autoComplete="off"
             spellCheck={false}
+            aria-describedby={ids.sizeHint}
             required
           />
+          <p id={ids.sizeHint} className="visually-hidden">
+            Maximum {MAX_PLAINTEXT_BYTES / 1024} kibibytes.
+          </p>
+          {tooLarge && (
+            <p className="hint" role="alert">
+              That is over the {MAX_PLAINTEXT_BYTES / 1024} KiB limit. Shorten it to continue.
+            </p>
+          )}
         </div>
 
         <div className="field field-row">
@@ -125,8 +136,8 @@ export function CreatePage() {
         )}
 
         <div className="actions">
-          <button type="submit" className="button large" disabled={!canSubmit}>
-            {busy ? <span className="spinner" /> : null}
+          <button type="submit" className="button large" disabled={!canSubmit} aria-busy={busy}>
+            {busy ? <span className="spinner" aria-hidden="true" /> : null}
             {busy ? "Encrypting…" : "Create link"}
           </button>
         </div>

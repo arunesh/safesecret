@@ -84,9 +84,18 @@ npm run deploy
   HTML document gets its CSP from that file and nowhere else.
 - The reveal page keeps the envelope in memory after burning so a mistyped passphrase can be
   retried. Re-fetching would 404 and lose the secret to a typo.
+- **Rate limiting is a seam, not a binding.** On Workers it delegates to the native binding,
+  which counts across colos. The Node limiter is in-process and protects one instance only;
+  behind a load balancer, limit at the proxy instead.
+- **The cron body lives in `sweepExpired()`, not inline in `scheduled()`,** so it can be
+  tested. `wrangler dev --test-scheduled` cannot reach `/__scheduled` here — the SPA asset
+  router answers it before the Worker sees it.
 
 ## Known gaps
 
-Rate limiting and the accessibility audit are phase 4 (PLAN.md §12). The hourly cron sweep
-and its handler exist but have not been exercised against remote D1. Accounts and
-server-side mode are designed for but not built — see PLAN.md §3.2.
+The cron trigger has not been exercised against remote D1 — its body is unit-tested and the
+schedule is declared, but nothing has watched it fire in production. Accounts and
+server-side mode are designed for but not built (PLAN.md §3.2).
+
+`wrangler.jsonc` still carries a placeholder `database_id`; replace it with a real one
+before deploying, or the deploy will target a database that does not exist.
