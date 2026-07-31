@@ -1,45 +1,64 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "safesecret",
-  "main": "worker/index.ts",
-  "compatibility_date": "2026-07-31",
-  "compatibility_flags": ["nodejs_compat"],
-
-  // Static assets (the built React app). `run_worker_first` is essential: with
-  // single-page-application not_found_handling, the asset router would otherwise
-  // answer /api/* with index.html and the Worker would never see the request.
-  "assets": {
-    "directory": "./dist/client",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
-  },
-
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "safesecret",
-      // Placeholder: local dev works as-is. Before the first deploy run
-      //   npx wrangler d1 create safesecret
-      // and paste the returned id here.
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "migrations"
-    }
-  ],
-
-  // Per-IP rate limits, counted at the edge.
-  //
-  // `period` accepts only 10 or 60 seconds, so the per-10-minute budgets in
-  // PLAN.md §7 are expressed as per-minute windows instead. Creating is the
-  // expensive side (it writes and consumes quota); revealing is capped mainly to
-  // blunt scripted sweeps, though 128-bit ids already make enumeration hopeless.
-  "ratelimits": [
-    { "name": "CREATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
-    { "name": "REVEAL_LIMITER", "namespace_id": "1002", "simple": { "limit": 30, "period": 60 } }
-  ],
-
-  // Hourly sweep of expired rows. Expiry is enforced on read regardless, so this
-  // is hygiene rather than correctness.
-  "triggers": { "crons": ["0 * * * *"] },
-
-  "observability": { "enabled": true, "head_sampling_rate": 1 }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "safesecret",
+	"main": "worker/index.ts",
+	"compatibility_date": "2026-07-31",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// Static assets (the built React app). `run_worker_first` is essential: with
+	// single-page-application not_found_handling, the asset router would otherwise
+	// answer /api/* with index.html and the Worker would never see the request.
+	"assets": {
+		"directory": "./dist/client",
+		"not_found_handling": "single-page-application",
+		"run_worker_first": [
+			"/api/*"
+		]
+	},
+	// One binding only. The Worker reads env.DB (worker/index.ts); a second binding
+	// to the same database would just be another name for the same rows.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "safesecret",
+			"database_id": "4029482f-504d-4082-aeca-0736ac49a3d8",
+			"migrations_dir": "migrations"
+		}
+	],
+	// Per-IP rate limits, counted at the edge.
+	//
+	// `period` accepts only 10 or 60 seconds, so the per-10-minute budgets in
+	// PLAN.md §7 are expressed as per-minute windows instead. Creating is the
+	// expensive side (it writes and consumes quota); revealing is capped mainly to
+	// blunt scripted sweeps, though 128-bit ids already make enumeration hopeless.
+	"ratelimits": [
+		{
+			"name": "CREATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 10,
+				"period": 60
+			}
+		},
+		{
+			"name": "REVEAL_LIMITER",
+			"namespace_id": "1002",
+			"simple": {
+				"limit": 30,
+				"period": 60
+			}
+		}
+	],
+	// Hourly sweep of expired rows. Expiry is enforced on read regardless, so this
+	// is hygiene rather than correctness.
+	"triggers": {
+		"crons": [
+			"0 * * * *"
+		]
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	}
 }
