@@ -44,7 +44,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <span>SafeSecret</span>
           <nav className="footer-links">
             <Link to="/faq">How it works</Link>
-            <a href="https://github.com/aruneshm/safesecret">Source</a>
+            <a href="https://github.com/arunesh/safesecret">Source</a>
           </nav>
         </div>
       </footer>
